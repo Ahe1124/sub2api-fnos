@@ -98,7 +98,7 @@ def configure_prebuilt_image(root: Path, image: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", required=True)
-    parser.add_argument("--version", default="0.1.3")
+    parser.add_argument("--version", default="0.1.4")
     parser.add_argument("--image", default="")
     args = parser.parse_args()
 

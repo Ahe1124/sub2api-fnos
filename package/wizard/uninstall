@@ -1,10 +1,10 @@
 [
   {
-    "stepTitle": "Confirm uninstall",
+    "stepTitle": "确认卸载",
     "items": [
       {
         "type": "tips",
-        "helpText": "Uninstall permanently removes the Sub2API container, local/prebuilt images, app data directory sub2api-docker, logs, Docker resources and legacy system PostgreSQL sub2api_fnos database/role if found. This cannot be recovered."
+        "helpText": "卸载会彻底删除 Sub2API 容器、本地或预构建镜像、应用数据目录 sub2api-docker、日志、Docker 相关资源，以及旧版本可能创建的系统 PostgreSQL 数据库和账号。删除后无法恢复。"
       }
     ]
   }

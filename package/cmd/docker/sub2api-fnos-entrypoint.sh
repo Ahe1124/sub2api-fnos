@@ -36,6 +36,8 @@ REDIS_DB="${REDIS_DB:-0}"
 
 JWT_SECRET="${JWT_SECRET:-}"
 TOTP_ENCRYPTION_KEY="${TOTP_ENCRYPTION_KEY:-}"
+ADMIN_EMAIL="${ADMIN_EMAIL:-}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 
 if [ -z "${POSTGRES_PASSWORD}" ]; then
     echo "[sub2api-fnos] DATABASE_PASSWORD or POSTGRES_PASSWORD is required" >&2
@@ -227,8 +229,67 @@ start_redis() {
     exit 1
 }
 
+sync_admin_user() {
+    if [ -z "${ADMIN_EMAIL}" ] || [ -z "${ADMIN_PASSWORD}" ]; then
+        return 0
+    fi
+
+    i=0
+    while [ "$i" -lt 180 ]; do
+        if as_app psql -h "${POSTGRES_RUN_DIR}" -p "${POSTGRES_PORT}" -U postgres -d "${POSTGRES_DB}" -Atc "SELECT to_regclass('public.users') IS NOT NULL" 2>/dev/null | grep -q t; then
+            if as_app psql -h "${POSTGRES_RUN_DIR}" -p "${POSTGRES_PORT}" -U postgres -d "${POSTGRES_DB}" -v ON_ERROR_STOP=1 -v admin_email="${ADMIN_EMAIL}" -v admin_password="${ADMIN_PASSWORD}" >/dev/null <<'SQL'
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+WITH password_value AS (
+  SELECT crypt(:'admin_password', gen_salt('bf', 10)) AS password_hash
+),
+email_user AS (
+  SELECT id FROM users WHERE email = :'admin_email' ORDER BY id LIMIT 1
+),
+admin_user AS (
+  SELECT id FROM users
+  WHERE role = 'admin' AND NOT EXISTS (SELECT 1 FROM email_user)
+  ORDER BY id
+  LIMIT 1
+),
+target_user AS (
+  SELECT id FROM email_user
+  UNION ALL
+  SELECT id FROM admin_user
+  LIMIT 1
+),
+updated_user AS (
+  UPDATE users
+  SET email = :'admin_email',
+      password_hash = (SELECT password_hash FROM password_value),
+      role = 'admin',
+      status = 'active',
+      updated_at = NOW()
+  WHERE id = (SELECT id FROM target_user)
+  RETURNING id
+)
+INSERT INTO users (email, password_hash, role, balance, concurrency, status, created_at, updated_at)
+SELECT :'admin_email', (SELECT password_hash FROM password_value), 'admin', 0, 5, 'active', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM updated_user);
+SQL
+            then
+                echo "[sub2api-fnos] admin account synchronized: ${ADMIN_EMAIL}"
+                return 0
+            fi
+        fi
+        i=$((i + 1))
+        sleep 1
+    done
+
+    echo "[sub2api-fnos] WARNING: failed to synchronize admin account within timeout" >&2
+    return 0
+}
+
 cleanup() {
     trap - INT TERM EXIT
+    if [ -n "${admin_sync_pid:-}" ]; then
+        kill "${admin_sync_pid}" 2>/dev/null || true
+        wait "${admin_sync_pid}" 2>/dev/null || true
+    fi
     if [ -n "${app_pid:-}" ]; then
         kill "${app_pid}" 2>/dev/null || true
         wait "${app_pid}" 2>/dev/null || true
@@ -252,6 +313,9 @@ write_app_config
 
 as_app "$@" &
 app_pid="$!"
+
+sync_admin_user &
+admin_sync_pid="$!"
 
 wait "${app_pid}"
 status="$?"

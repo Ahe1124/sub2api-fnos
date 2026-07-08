@@ -1,36 +1,39 @@
 [
   {
-    "stepTitle": "Sub2API Setup",
+    "stepTitle": "Sub2API 安装设置",
     "items": [
       {
         "type": "tips",
-        "helpText": "Install starts one host-network Docker container. Sub2API listens on 0.0.0.0:8088. PostgreSQL and Redis are embedded in the same container and store data under the selected install volume: @appshare/sub2api-docker/data. PostgreSQL uses 127.0.0.1:15432 and Redis uses 127.0.0.1:16379. Uninstall removes the container, image, app data, logs and legacy system PostgreSQL sub2api_fnos database/role if found."
+        "helpText": "安装后只会启动一个使用 host 网络的 Docker 容器。Sub2API 监听 0.0.0.0:8088。PostgreSQL 和 Redis 已内嵌在同一个容器中，数据会保存到所选安装盘的 @appshare/sub2api-docker/data 目录。卸载时会清理容器、镜像、应用数据、日志和旧版本可能创建的 PostgreSQL 数据库账号。"
       },
       {
         "type": "text",
         "field": "wizard_admin_email",
-        "label": "Admin email",
-        "initValue": "admin@sub2api.local",
+        "label": "管理员邮箱",
+        "initValue": "admin@52o.ink",
         "rules": [
           {
             "required": true,
-            "message": "Please enter an admin email"
+            "message": "请填写管理员邮箱"
           }
         ]
       },
       {
         "type": "password",
         "field": "wizard_admin_password",
-        "label": "Admin password",
+        "label": "管理员密码",
         "initValue": "",
-        "helpText": "Optional. If left empty, Sub2API generates one on first startup and prints it in container logs."
+        "helpText": "安装完成后请使用这里填写的邮箱和密码登录。",
+        "rules": [
+          {
+            "required": true,
+            "message": "请填写管理员密码"
+          }
+        ]
       },
       {
-        "type": "text",
-        "field": "wizard_update_proxy_url",
-        "label": "Update proxy",
-        "initValue": "",
-        "helpText": "Optional proxy for online update or GitHub access, such as http://host:port or socks5://host:port."
+        "type": "tips",
+        "helpText": "安装包会优先从 GitHub 容器仓库拉取预构建镜像，避免在 NAS 上本地编译。首次安装时间主要取决于网络拉取速度。"
       }
     ]
   }

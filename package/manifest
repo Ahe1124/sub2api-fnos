@@ -1,7 +1,7 @@
 appname=sub2api
-version=0.1.3
+version=0.1.4
 display_name=Sub2API
-desc="""<p><strong>Intro:</strong> Sub2API is an AI API gateway for API keys, account pools, billing, load balancing and request forwarding.</p><p><strong>Packaging:</strong> fnOS Docker app. The app runs as a single <code>sub2api</code> container on host network. Sub2API listens on <code>0.0.0.0:8088</code>.</p><p><strong>Storage:</strong> PostgreSQL and Redis are embedded inside the same container. PostgreSQL listens on <code>127.0.0.1:15432</code>, Redis listens on <code>127.0.0.1:16379</code>, and both store data under the selected app data volume at <code>@appshare/sub2api-docker/data</code>.</p><p><strong>Uninstall cleanup:</strong> Removes the container, local/prebuilt images, app data directories, logs, Docker resources, and legacy system PostgreSQL database/role if they exist.</p><p><strong>Source:</strong> <a href="https://github.com/Wei-Shaw/sub2api" target="_blank">Wei-Shaw/sub2api</a></p>"""
+desc="""<p><strong>简介：</strong>Sub2API 是一个用于 API Key、账号池、计费、负载均衡和请求转发的 AI API 网关平台。</p><p><strong>打包方式：</strong>飞牛 Docker 应用，安装后只运行一个 <code>sub2api</code> 容器，并使用 host 网络。Sub2API 监听 <code>0.0.0.0:8088</code>。</p><p><strong>数据存储：</strong>PostgreSQL 和 Redis 已内嵌在同一个容器中。PostgreSQL 监听 <code>127.0.0.1:15432</code>，Redis 监听 <code>127.0.0.1:16379</code>，所有数据都会保存到所选安装盘的 <code>@appshare/sub2api-docker/data</code> 目录。</p><p><strong>卸载清理：</strong>卸载时会删除容器、镜像、应用数据目录、日志、Docker 相关资源，以及旧版本可能创建的系统 PostgreSQL 数据库和账号。</p><p><strong>项目源码：</strong><a href="https://github.com/Wei-Shaw/sub2api" target="_blank">Wei-Shaw/sub2api</a></p>"""
 platform=all
 source=thirdparty
 maintainer=Wei-Shaw
@@ -12,4 +12,4 @@ desktop_uidir=ui
 desktop_applaunchname=sub2api.proxy.Application
 service_port=8088
 checkport=true
-changelog=Embed PostgreSQL and Redis in the single host-network container so all app data follows the selected fnOS install volume, while keeping uninstall cleanup compatible with legacy system PostgreSQL installs.
+changelog=修复安装向导账号密码未生效的问题，应用中心和安装卸载说明改为中文，移除代理输入项，并使用预构建镜像加快飞牛安装速度。
