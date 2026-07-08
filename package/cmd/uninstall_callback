@@ -6,6 +6,29 @@ DB_NAME="sub2api_fnos"
 DB_USER="sub2api_fnos"
 IMAGE_TAG="sub2api-fnos:0.1.0"
 PREBUILT_IMAGE="__SUB2API_FNOS_IMAGE__"
+APP_NAME="sub2api"
+
+detect_volume() {
+    if [ -n "${TRIM_APPDEST_VOL:-}" ]; then
+        printf '/%s\n' "${TRIM_APPDEST_VOL#/}"
+        return 0
+    fi
+    if [ -n "${TRIM_APPDEST:-}" ]; then
+        case "${TRIM_APPDEST}" in
+            /vol*/*)
+                printf '%s\n' "${TRIM_APPDEST%%/@*}"
+                return 0
+                ;;
+        esac
+    fi
+    for candidate in /vol*/@appshare/sub2api-docker /vol*/@appcenter/"${APP_NAME}" /vol*/@appmeta/"${APP_NAME}"; do
+        if [ -e "${candidate}" ]; then
+            printf '%s\n' "${candidate%%/@*}"
+            return 0
+        fi
+    done
+    printf '/vol2\n'
+}
 
 select_psql() {
     if psql -U postgres -d postgres -tAc 'select 1' >/dev/null 2>&1; then
@@ -49,6 +72,18 @@ DROP ROLE IF EXISTS ${DB_USER};
 SQL
 fi
 
-rm -rf "${DATA_ROOT}" "${TRIM_PKGVAR:-/var/empty/sub2api-unused}"
+APP_VOL="$(detect_volume)"
+rm -rf \
+    "${DATA_ROOT}" \
+    "${APP_VOL}/@appshare/sub2api-docker" \
+    "${APP_VOL}/@appcenter/${APP_NAME}" \
+    "${APP_VOL}/@appconf/${APP_NAME}" \
+    "${APP_VOL}/@apphome/${APP_NAME}" \
+    "${APP_VOL}/@appmeta/${APP_NAME}" \
+    "${TRIM_PKGVAR:-/var/empty/sub2api-unused}" \
+    "/var/log/apps/${APP_NAME}.log" \
+    "/var/packages/${APP_NAME}" \
+    "/var/apps/${APP_NAME}" \
+    "/var/appdata/${APP_NAME}"
 
 exit 0

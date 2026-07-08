@@ -7,6 +7,8 @@ DB_NAME="sub2api_fnos"
 DB_USER="sub2api_fnos"
 IMAGE_TAG="sub2api-fnos:0.1.0"
 PREBUILT_IMAGE="__SUB2API_FNOS_IMAGE__"
+APP_NAME="sub2api"
+APP_SHARE="sub2api-docker"
 
 log() {
     echo "[sub2api install] $*"
@@ -69,6 +71,50 @@ find_docker_dir() {
     return 1
 }
 
+detect_volume() {
+    if [ -n "${TRIM_APPDEST_VOL:-}" ]; then
+        printf '/%s\n' "${TRIM_APPDEST_VOL#/}"
+        return 0
+    fi
+    if [ -n "${TRIM_APPDEST:-}" ]; then
+        case "${TRIM_APPDEST}" in
+            /vol*/*)
+                printf '%s\n' "${TRIM_APPDEST%%/@*}"
+                return 0
+                ;;
+        esac
+    fi
+    for candidate in /vol*/@appshare/"${APP_SHARE}" /vol*/@appcenter/"${APP_NAME}" /vol*/@appmeta/"${APP_NAME}"; do
+        if [ -e "${candidate}" ]; then
+            printf '%s\n' "${candidate%%/@*}"
+            return 0
+        fi
+    done
+    printf '/vol2\n'
+}
+
+find_compose_file() {
+    script_dir="$(cd "$(dirname "$0")" && pwd)"
+    app_vol="$(detect_volume)"
+
+    for candidate in \
+        "${TRIM_APPDEST:-}/docker/docker-compose.yaml" \
+        "${script_dir}/docker/docker-compose.yaml" \
+        "${script_dir}/../app/docker/docker-compose.yaml" \
+        "${script_dir}/../docker/docker-compose.yaml" \
+        "${app_vol}/@appcenter/${APP_NAME}/docker/docker-compose.yaml" \
+        "${app_vol}/@appmeta/${APP_NAME}/cmd/docker/docker-compose.yaml" \
+        /vol*/@appcenter/"${APP_NAME}"/docker/docker-compose.yaml \
+        /vol*/@appmeta/"${APP_NAME}"/cmd/docker/docker-compose.yaml
+    do
+        if [ -f "${candidate}" ]; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    done
+    return 1
+}
+
 prepare_app_image() {
     if ! command -v docker >/dev/null 2>&1; then
         fail "docker command not found"
@@ -92,6 +138,17 @@ prepare_app_image() {
 
     DOCKER_DIR="$(find_docker_dir)" || fail "docker package directory not found"
     docker build --pull -t "${IMAGE_TAG}" "${DOCKER_DIR}" || fail "failed to build ${IMAGE_TAG}"
+}
+
+start_app() {
+    if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
+        fail "docker is not available"
+    fi
+    APP_VOL="$(detect_volume)"
+    TRIM_APPDEST_VOL="${APP_VOL#/}"
+    export TRIM_APPDEST_VOL
+    COMPOSE_FILE="$(find_compose_file)" || fail "docker-compose.yaml not found"
+    docker compose -p "${APP_NAME}" -f "${COMPOSE_FILE}" up -d --remove-orphans || fail "failed to start ${APP_NAME}"
 }
 
 mkdir -p "${DATA_ROOT}/data" "${DATA_ROOT}/data/redis"
@@ -184,4 +241,6 @@ EOF_HBA
 fi
 
 log "prepared PostgreSQL database ${DB_NAME} and application data in ${DATA_ROOT}"
+start_app
+log "started ${APP_NAME}"
 exit 0

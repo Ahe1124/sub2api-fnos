@@ -22,7 +22,7 @@ Build an FPK that pulls a prebuilt GHCR image:
 .\build_sub2api_fpk.ps1 -Image "ghcr.io/<github-owner-lowercase>/sub2api-fnos:0.1.0"
 ```
 
-The generated package is written to `dist/sub2api-docker_0.1.0.fpk`.
+The generated package is written to `dist/sub2api-docker_0.1.1.fpk`.
 
 GitHub Actions:
 

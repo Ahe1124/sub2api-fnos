@@ -1,25 +1,106 @@
 #!/bin/bash
+set -u
 
-is_docker_running () {
-    DOCKER_NAME="sub2api"
+APP_NAME="sub2api"
+APP_SHARE="sub2api-docker"
 
-    docker inspect "$DOCKER_NAME" 2>/dev/null | grep -q "\"Status\": \"running\"," && return 0
+log() {
+    echo "[sub2api main] $*"
+}
+
+detect_volume() {
+    if [ -n "${TRIM_APPDEST_VOL:-}" ]; then
+        printf '/%s\n' "${TRIM_APPDEST_VOL#/}"
+        return 0
+    fi
+    if [ -n "${TRIM_APPDEST:-}" ]; then
+        case "${TRIM_APPDEST}" in
+            /vol*/*)
+                printf '%s\n' "${TRIM_APPDEST%%/@*}"
+                return 0
+                ;;
+        esac
+    fi
+    for candidate in /vol*/@appshare/"${APP_SHARE}" /vol*/@appcenter/"${APP_NAME}" /vol*/@appmeta/"${APP_NAME}"; do
+        if [ -e "${candidate}" ]; then
+            printf '%s\n' "${candidate%%/@*}"
+            return 0
+        fi
+    done
+    printf '/vol2\n'
+}
+
+find_compose_file() {
+    script_dir="$(cd "$(dirname "$0")" && pwd)"
+    app_vol="$(detect_volume)"
+
+    for candidate in \
+        "${TRIM_APPDEST:-}/docker/docker-compose.yaml" \
+        "${script_dir}/docker/docker-compose.yaml" \
+        "${script_dir}/../app/docker/docker-compose.yaml" \
+        "${script_dir}/../docker/docker-compose.yaml" \
+        "${app_vol}/@appcenter/${APP_NAME}/docker/docker-compose.yaml" \
+        "${app_vol}/@appmeta/${APP_NAME}/cmd/docker/docker-compose.yaml" \
+        /vol*/@appcenter/"${APP_NAME}"/docker/docker-compose.yaml \
+        /vol*/@appmeta/"${APP_NAME}"/cmd/docker/docker-compose.yaml
+    do
+        if [ -f "${candidate}" ]; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    done
     return 1
 }
 
-case "$1" in
+prepare_environment() {
+    APP_VOL="$(detect_volume)"
+    TRIM_APPDEST_VOL="${APP_VOL#/}"
+    export TRIM_APPDEST_VOL
+    DATA_ROOT="${APP_VOL}/@appshare/${APP_SHARE}"
+    ENV_FILE="${DATA_ROOT}/sub2api.env"
+}
+
+docker_available() {
+    command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1
+}
+
+is_running() {
+    docker inspect -f '{{.State.Running}}' "${APP_NAME}" 2>/dev/null | grep -q true
+}
+
+compose_cmd() {
+    docker compose -p "${APP_NAME}" -f "${COMPOSE_FILE}" "$@"
+}
+
+start_app() {
+    docker_available || { log "docker is not available"; return 1; }
+    prepare_environment
+    [ -s "${ENV_FILE}" ] || { log "env file not found: ${ENV_FILE}"; return 1; }
+    COMPOSE_FILE="$(find_compose_file)" || { log "docker-compose.yaml not found"; return 1; }
+    compose_cmd up -d --remove-orphans
+}
+
+stop_app() {
+    docker_available || return 0
+    prepare_environment
+    if COMPOSE_FILE="$(find_compose_file)"; then
+        compose_cmd stop >/dev/null 2>&1 || true
+    fi
+    docker stop "${APP_NAME}" >/dev/null 2>&1 || true
+}
+
+case "${1:-}" in
 start)
-    exit 0
+    start_app
     ;;
 stop)
-    exit 0
+    stop_app
     ;;
 status)
-    if is_docker_running; then
+    if docker_available && is_running; then
         exit 0
-    else
-        exit 3
     fi
+    exit 3
     ;;
 *)
     exit 1

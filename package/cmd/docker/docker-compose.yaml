@@ -1,0 +1,38 @@
+services:
+  sub2api:
+    image: sub2api-fnos:0.1.0
+    container_name: sub2api
+    restart: always
+    network_mode: host
+    ulimits:
+      nofile:
+        soft: 100000
+        hard: 100000
+    volumes:
+      - "/${TRIM_APPDEST_VOL}/@appshare/sub2api-docker/data:/app/data"
+    env_file:
+      - "/${TRIM_APPDEST_VOL}/@appshare/sub2api-docker/sub2api.env"
+    environment:
+      - AUTO_SETUP=true
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8088
+      - SERVER_MODE=release
+      - RUN_MODE=standard
+      - SETUP_MIGRATION_TIMEOUT_SECONDS=0
+      - TZ=Asia/Shanghai
+      - LOG_LEVEL=info
+      - LOG_FORMAT=json
+      - LOG_OUTPUT_TO_STDOUT=true
+      - LOG_OUTPUT_TO_FILE=true
+      - SECURITY_URL_ALLOWLIST_ENABLED=false
+      - SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP=true
+      - SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS=true
+      - GATEWAY_OPENAI_HTTP2_ENABLED=true
+      - GATEWAY_OPENAI_HTTP2_ALLOW_PROXY_FALLBACK_TO_HTTP1=true
+      - GATEWAY_IMAGE_CONCURRENCY_ENABLED=false
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "5", "-O", "/dev/null", "http://localhost:8088/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
