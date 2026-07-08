@@ -19,7 +19,7 @@ Build on Windows:
 Build an FPK that pulls a prebuilt GHCR image:
 
 ```powershell
-.\build_sub2api_fpk.ps1 -Image "ghcr.io/<github-owner>/sub2api-fnos:0.1.0"
+.\build_sub2api_fpk.ps1 -Image "ghcr.io/<github-owner-lowercase>/sub2api-fnos:0.1.0"
 ```
 
 The generated package is written to `dist/sub2api-docker_0.1.0.fpk`.
@@ -28,7 +28,7 @@ GitHub Actions:
 
 - Push this directory to a GitHub repository.
 - Run `Build Sub2API fnOS Image` from the Actions tab.
-- The workflow publishes `ghcr.io/<github-owner>/sub2api-fnos:0.1.0` and `ghcr.io/<github-owner>/sub2api-fnos:latest`.
+- The workflow publishes `ghcr.io/<github-owner-lowercase>/sub2api-fnos:0.1.0` and `ghcr.io/<github-owner-lowercase>/sub2api-fnos:latest`.
 - After the image exists, rebuild the FPK with `-Image` so fnOS installs by pulling the prebuilt image instead of building on the NAS.
 
 Install notes:
