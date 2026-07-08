@@ -1,0 +1,54 @@
+#!/bin/bash
+set -u
+
+DATA_ROOT="/${TRIM_APPDEST_VOL}/@appshare/sub2api-docker"
+DB_NAME="sub2api_fnos"
+DB_USER="sub2api_fnos"
+IMAGE_TAG="sub2api-fnos:0.1.0"
+PREBUILT_IMAGE="__SUB2API_FNOS_IMAGE__"
+
+select_psql() {
+    if psql -U postgres -d postgres -tAc 'select 1' >/dev/null 2>&1; then
+        PSQL_CMD="psql -U postgres -d postgres"
+        return 0
+    fi
+    if command -v runuser >/dev/null 2>&1 && runuser -u postgres -- psql -d postgres -tAc 'select 1' >/dev/null 2>&1; then
+        PSQL_CMD="runuser -u postgres -- psql -d postgres"
+        return 0
+    fi
+    return 1
+}
+
+if command -v docker >/dev/null 2>&1; then
+    docker rm -f sub2api sub2api-redis >/dev/null 2>&1 || true
+    docker volume ls --format '{{.Name}}' | grep -i sub2api | while read -r volume_name; do
+        [ -n "${volume_name}" ] && docker volume rm "${volume_name}" >/dev/null 2>&1 || true
+    done
+    docker network ls --format '{{.Name}}' | grep -i sub2api | while read -r network_name; do
+        [ -n "${network_name}" ] && docker network rm "${network_name}" >/dev/null 2>&1 || true
+    done
+    docker image rm "${IMAGE_TAG}" >/dev/null 2>&1 || true
+    if [ -n "${PREBUILT_IMAGE}" ] && [ "${PREBUILT_IMAGE}" != "__SUB2API_FNOS_IMAGE__" ]; then
+        docker image rm "${PREBUILT_IMAGE}" >/dev/null 2>&1 || true
+    fi
+    docker image rm weishaw/sub2api:latest redis:8-alpine >/dev/null 2>&1 || true
+fi
+
+if command -v psql >/dev/null 2>&1 && select_psql; then
+    HBA_FILE="$(${PSQL_CMD} -Atc 'show hba_file;' 2>/dev/null | head -n 1)"
+    if [ -n "${HBA_FILE}" ] && [ -f "${HBA_FILE}" ]; then
+        sed -i '/sub2api-fnos-begin/,/sub2api-fnos-end/d' "${HBA_FILE}" || true
+        systemctl reload postgresql >/dev/null 2>&1 || true
+    fi
+
+    ${PSQL_CMD} -v ON_ERROR_STOP=0 <<SQL
+REVOKE CONNECT ON DATABASE ${DB_NAME} FROM PUBLIC;
+SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_NAME}';
+DROP DATABASE IF EXISTS ${DB_NAME};
+DROP ROLE IF EXISTS ${DB_USER};
+SQL
+fi
+
+rm -rf "${DATA_ROOT}" "${TRIM_PKGVAR:-/var/empty/sub2api-unused}"
+
+exit 0

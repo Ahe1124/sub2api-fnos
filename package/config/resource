@@ -1,0 +1,22 @@
+{
+  "docker-project": {
+    "projects": [
+      {
+        "name": "sub2api",
+        "path": "docker"
+      }
+    ]
+  },
+  "data-share": {
+    "shares": [
+      {
+        "name": "sub2api-docker",
+        "permission": {
+          "rw": [
+            "sub2api-docker"
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+appname=sub2api
+version=0.1.0
+display_name=Sub2API
+desc="""<p><strong>简介：</strong>Sub2API 是一个 AI API 网关平台，用于分发和管理 AI 产品订阅配额，提供 API Key、账号池、计费、负载均衡和请求转发能力。</p><p><strong>打包方式：</strong>飞牛 Docker 应用，优先拉取预构建包装镜像；未配置预构建镜像时会基于 <code>weishaw/sub2api:latest</code> 和 <code>redis:8-alpine</code> 本地构建 <code>sub2api-fnos:0.1.0</code>。Compose 只启动一个 <code>sub2api</code> 容器并使用 host 网络。Sub2API 监听 <code>0.0.0.0:8088</code>，内嵌 Redis 进程只监听 <code>127.0.0.1:6379</code>。</p><p><strong>存储方式：</strong>安装时自动复用系统 PostgreSQL，并创建独立 <code>sub2api_fnos</code> 数据库/用户；Redis 数据随应用数据目录存放。</p><p><strong>卸载清理：</strong>卸载时删除容器、本地包装镜像、应用共享目录、PostgreSQL 数据库/用户和添加的 pg_hba 配置段。</p><p><strong>来源：</strong><a href="https://github.com/Wei-Shaw/sub2api" target="_blank">Wei-Shaw/sub2api</a></p>"""
+platform=all
+source=thirdparty
+maintainer=Wei-Shaw
+maintainer_url=https://github.com/Wei-Shaw/sub2api
+distributor=local
+distributor_url=https://github.com/Wei-Shaw/sub2api
+desktop_uidir=ui
+desktop_applaunchname=sub2api.proxy.Application
+service_port=8088
+checkport=true
+changelog=Use one host-network container, embed Redis inside the Sub2API wrapper image, reuse system PostgreSQL with an isolated sub2api_fnos database, and clean all app data on uninstall.

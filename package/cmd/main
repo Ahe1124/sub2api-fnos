@@ -1,0 +1,27 @@
+#!/bin/bash
+
+is_docker_running () {
+    DOCKER_NAME="sub2api"
+
+    docker inspect "$DOCKER_NAME" 2>/dev/null | grep -q "\"Status\": \"running\"," && return 0
+    return 1
+}
+
+case "$1" in
+start)
+    exit 0
+    ;;
+stop)
+    exit 0
+    ;;
+status)
+    if is_docker_running; then
+        exit 0
+    else
+        exit 3
+    fi
+    ;;
+*)
+    exit 1
+    ;;
+esac

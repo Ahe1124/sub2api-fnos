@@ -1,0 +1,13 @@
+{
+  ".url": {
+    "sub2api.proxy.Application": {
+      "title": "Sub2API",
+      "icon": "images/icon_{0}.png",
+      "type": "url",
+      "protocol": "http",
+      "port": "8088",
+      "url": "/",
+      "allUsers": true
+    }
+  }
+}

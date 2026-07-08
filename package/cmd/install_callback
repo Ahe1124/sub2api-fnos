@@ -1,0 +1,187 @@
+#!/bin/bash
+set -u
+
+DATA_ROOT="/${TRIM_APPDEST_VOL}/@appshare/sub2api-docker"
+ENV_FILE="${DATA_ROOT}/sub2api.env"
+DB_NAME="sub2api_fnos"
+DB_USER="sub2api_fnos"
+IMAGE_TAG="sub2api-fnos:0.1.0"
+PREBUILT_IMAGE="__SUB2API_FNOS_IMAGE__"
+
+log() {
+    echo "[sub2api install] $*"
+}
+
+fail() {
+    echo "[sub2api install] ERROR: $*" >&2
+    exit 1
+}
+
+gen_secret() {
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -hex 32
+    else
+        tr -dc 'A-Za-z0-9' </dev/urandom | head -c 64
+        echo
+    fi
+}
+
+read_env_value() {
+    key="$1"
+    [ -s "${ENV_FILE}" ] || return 1
+    sed -n "s/^${key}=//p" "${ENV_FILE}" | head -n 1 | sed 's/^"//;s/"$//'
+}
+
+escape_env_value() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+write_env_line() {
+    key="$1"
+    value="$2"
+    printf '%s="%s"\n' "$key" "$(escape_env_value "$value")"
+}
+
+select_psql() {
+    if psql -U postgres -d postgres -tAc 'select 1' >/dev/null 2>&1; then
+        PSQL_CMD="psql -U postgres -d postgres"
+        return 0
+    fi
+    if command -v runuser >/dev/null 2>&1 && runuser -u postgres -- psql -d postgres -tAc 'select 1' >/dev/null 2>&1; then
+        PSQL_CMD="runuser -u postgres -- psql -d postgres"
+        return 0
+    fi
+    return 1
+}
+
+find_docker_dir() {
+    for candidate in \
+        "${TRIM_APPDEST:-}/docker" \
+        "$(cd "$(dirname "$0")" && pwd)/docker" \
+        "$(cd "$(dirname "$0")" && pwd)/../app/docker" \
+        "$(cd "$(dirname "$0")" && pwd)/../docker"
+    do
+        if [ -n "${candidate}" ] && [ -f "${candidate}/Dockerfile" ]; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+prepare_app_image() {
+    if ! command -v docker >/dev/null 2>&1; then
+        fail "docker command not found"
+    fi
+
+    if docker inspect -f '{{.State.Running}}' sub2api 2>/dev/null | grep -q true; then
+        log "sub2api container is already running; skip image rebuild"
+        return 0
+    fi
+
+    docker rm -f sub2api sub2api-redis >/dev/null 2>&1 || true
+
+    if [ -n "${PREBUILT_IMAGE}" ] && [ "${PREBUILT_IMAGE}" != "__SUB2API_FNOS_IMAGE__" ]; then
+        log "pulling prebuilt image ${PREBUILT_IMAGE}"
+        if docker pull "${PREBUILT_IMAGE}" && docker tag "${PREBUILT_IMAGE}" "${IMAGE_TAG}"; then
+            log "prepared ${IMAGE_TAG} from ${PREBUILT_IMAGE}"
+            return 0
+        fi
+        log "prebuilt image pull failed; falling back to local build"
+    fi
+
+    DOCKER_DIR="$(find_docker_dir)" || fail "docker package directory not found"
+    docker build --pull -t "${IMAGE_TAG}" "${DOCKER_DIR}" || fail "failed to build ${IMAGE_TAG}"
+}
+
+mkdir -p "${DATA_ROOT}/data" "${DATA_ROOT}/data/redis"
+chmod 700 "${DATA_ROOT}" "${DATA_ROOT}/data/redis" 2>/dev/null || true
+
+if ! command -v psql >/dev/null 2>&1; then
+    fail "system PostgreSQL client psql not found"
+fi
+
+systemctl start postgresql >/dev/null 2>&1 || true
+select_psql || fail "cannot connect to system PostgreSQL as postgres"
+
+if [ -s "${ENV_FILE}" ]; then
+    DATABASE_PASSWORD="$(read_env_value DATABASE_PASSWORD)"
+    REDIS_PASSWORD="$(read_env_value REDIS_PASSWORD)"
+    JWT_SECRET="$(read_env_value JWT_SECRET)"
+    TOTP_ENCRYPTION_KEY="$(read_env_value TOTP_ENCRYPTION_KEY)"
+else
+    DATABASE_PASSWORD="$(gen_secret)"
+    REDIS_PASSWORD="$(gen_secret)"
+    JWT_SECRET="$(gen_secret)"
+    TOTP_ENCRYPTION_KEY="$(gen_secret)"
+fi
+[ -n "${DATABASE_PASSWORD:-}" ] || DATABASE_PASSWORD="$(gen_secret)"
+[ -n "${REDIS_PASSWORD:-}" ] || REDIS_PASSWORD="$(gen_secret)"
+[ -n "${JWT_SECRET:-}" ] || JWT_SECRET="$(gen_secret)"
+[ -n "${TOTP_ENCRYPTION_KEY:-}" ] || TOTP_ENCRYPTION_KEY="$(gen_secret)"
+
+ADMIN_EMAIL="${wizard_admin_email:-admin@sub2api.local}"
+ADMIN_PASSWORD="${wizard_admin_password:-}"
+UPDATE_PROXY_URL="${wizard_update_proxy_url:-}"
+
+umask 077
+{
+    write_env_line DATABASE_HOST "127.0.0.1"
+    write_env_line DATABASE_PORT "5432"
+    write_env_line DATABASE_USER "${DB_USER}"
+    write_env_line DATABASE_PASSWORD "${DATABASE_PASSWORD}"
+    write_env_line DATABASE_DBNAME "${DB_NAME}"
+    write_env_line DATABASE_SSLMODE "disable"
+    write_env_line DATABASE_MAX_OPEN_CONNS "50"
+    write_env_line DATABASE_MAX_IDLE_CONNS "10"
+    write_env_line DATABASE_CONN_MAX_LIFETIME_MINUTES "30"
+    write_env_line DATABASE_CONN_MAX_IDLE_TIME_MINUTES "5"
+    write_env_line REDIS_HOST "127.0.0.1"
+    write_env_line REDIS_PORT "6379"
+    write_env_line REDIS_PASSWORD "${REDIS_PASSWORD}"
+    write_env_line REDIS_DB "0"
+    write_env_line REDIS_POOL_SIZE "1024"
+    write_env_line REDIS_MIN_IDLE_CONNS "10"
+    write_env_line REDIS_ENABLE_TLS "false"
+    write_env_line ADMIN_EMAIL "${ADMIN_EMAIL}"
+    write_env_line ADMIN_PASSWORD "${ADMIN_PASSWORD}"
+    write_env_line JWT_SECRET "${JWT_SECRET}"
+    write_env_line JWT_EXPIRE_HOUR "24"
+    write_env_line TOTP_ENCRYPTION_KEY "${TOTP_ENCRYPTION_KEY}"
+    write_env_line UPDATE_PROXY_URL "${UPDATE_PROXY_URL}"
+} > "${ENV_FILE}"
+chmod 600 "${ENV_FILE}"
+
+prepare_app_image
+
+${PSQL_CMD} -v ON_ERROR_STOP=1 <<SQL
+DO \$\$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${DB_USER}') THEN
+    CREATE ROLE ${DB_USER} LOGIN PASSWORD '${DATABASE_PASSWORD}';
+  ELSE
+    ALTER ROLE ${DB_USER} WITH LOGIN PASSWORD '${DATABASE_PASSWORD}';
+  END IF;
+END
+\$\$;
+SELECT 'CREATE DATABASE ${DB_NAME} OWNER ${DB_USER} ENCODING ''UTF8'''
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}')\gexec
+ALTER DATABASE ${DB_NAME} OWNER TO ${DB_USER};
+GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};
+SQL
+
+HBA_FILE="$(${PSQL_CMD} -Atc 'show hba_file;' 2>/dev/null | head -n 1)"
+if [ -n "${HBA_FILE}" ] && [ -f "${HBA_FILE}" ]; then
+    if ! grep -q "sub2api-fnos-begin" "${HBA_FILE}"; then
+        cat >> "${HBA_FILE}" <<EOF_HBA
+# sub2api-fnos-begin
+host    ${DB_NAME}    ${DB_USER}    127.0.0.1/32    md5
+host    ${DB_NAME}    ${DB_USER}    ::1/128         md5
+# sub2api-fnos-end
+EOF_HBA
+    fi
+    systemctl reload postgresql >/dev/null 2>&1 || true
+fi
+
+log "prepared PostgreSQL database ${DB_NAME} and application data in ${DATA_ROOT}"
+exit 0
