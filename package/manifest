@@ -1,7 +1,7 @@
 appname=sub2api
-version=0.1.2
+version=0.1.3
 display_name=Sub2API
-desc="""<p><strong>简介：</strong>Sub2API 是一个 AI API 网关平台，用于分发和管理 AI 产品订阅配额，提供 API Key、账号池、计费、负载均衡和请求转发能力。</p><p><strong>打包方式：</strong>飞牛 Docker 应用，优先拉取预构建包装镜像；未配置预构建镜像时会基于 <code>weishaw/sub2api:latest</code> 和 <code>redis:8-alpine</code> 本地构建 <code>sub2api-fnos:0.1.0</code>。Compose 只启动一个 <code>sub2api</code> 容器并使用 host 网络。Sub2API 监听 <code>0.0.0.0:8088</code>，内嵌 Redis 进程只监听 <code>127.0.0.1:6379</code>。</p><p><strong>存储方式：</strong>安装时自动复用系统 PostgreSQL，并创建独立 <code>sub2api_fnos</code> 数据库/用户；Redis 数据随应用数据目录存放。</p><p><strong>卸载清理：</strong>卸载时删除容器、本地包装镜像、应用共享目录、PostgreSQL 数据库/用户和添加的 pg_hba 配置段。</p><p><strong>来源：</strong><a href="https://github.com/Wei-Shaw/sub2api" target="_blank">Wei-Shaw/sub2api</a></p>"""
+desc="""<p><strong>Intro:</strong> Sub2API is an AI API gateway for API keys, account pools, billing, load balancing and request forwarding.</p><p><strong>Packaging:</strong> fnOS Docker app. The app runs as a single <code>sub2api</code> container on host network. Sub2API listens on <code>0.0.0.0:8088</code>.</p><p><strong>Storage:</strong> PostgreSQL and Redis are embedded inside the same container. PostgreSQL listens on <code>127.0.0.1:15432</code>, Redis listens on <code>127.0.0.1:16379</code>, and both store data under the selected app data volume at <code>@appshare/sub2api-docker/data</code>.</p><p><strong>Uninstall cleanup:</strong> Removes the container, local/prebuilt images, app data directories, logs, Docker resources, and legacy system PostgreSQL database/role if they exist.</p><p><strong>Source:</strong> <a href="https://github.com/Wei-Shaw/sub2api" target="_blank">Wei-Shaw/sub2api</a></p>"""
 platform=all
 source=thirdparty
 maintainer=Wei-Shaw
@@ -12,4 +12,4 @@ desktop_uidir=ui
 desktop_applaunchname=sub2api.proxy.Application
 service_port=8088
 checkport=true
-changelog=Fix system PostgreSQL pg_hba rules for Sub2API auto setup, keep host-network startup lifecycle, and broaden uninstall cleanup for app data, logs, Docker resources, database and role.
+changelog=Embed PostgreSQL and Redis in the single host-network container so all app data follows the selected fnOS install volume, while keeping uninstall cleanup compatible with legacy system PostgreSQL installs.

@@ -6,6 +6,8 @@ FROM weishaw/sub2api:latest
 
 USER root
 
+RUN apk add --no-cache postgresql16 postgresql16-client postgresql16-contrib su-exec
+
 COPY --from=redis /usr/local/bin/redis-server /usr/local/bin/redis-server
 COPY --from=redis /usr/local/bin/redis-cli /usr/local/bin/redis-cli
 COPY --from=redis /usr/lib/libssl.so.3 /usr/lib/libssl.so.3

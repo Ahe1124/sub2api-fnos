@@ -1,6 +1,6 @@
 services:
   sub2api:
-    image: sub2api-fnos:0.1.0
+    image: sub2api-fnos:0.1.3
     container_name: sub2api
     restart: always
     network_mode: host
@@ -17,6 +17,22 @@ services:
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8088
       - SERVER_MODE=release
+      - DATABASE_HOST=127.0.0.1
+      - DATABASE_PORT=15432
+      - DATABASE_USER=sub2api_fnos
+      - DATABASE_DBNAME=sub2api_fnos
+      - DATABASE_SSLMODE=disable
+      - POSTGRES_BIND=127.0.0.1
+      - POSTGRES_PORT=15432
+      - POSTGRES_DB=sub2api_fnos
+      - POSTGRES_USER=sub2api_fnos
+      - POSTGRES_DATA_DIR=/app/data/postgresql
+      - POSTGRES_RUN_DIR=/app/data/postgresql-run
+      - REDIS_HOST=127.0.0.1
+      - REDIS_PORT=16379
+      - REDIS_DATA_DIR=/app/data/redis
+      - REDIS_ENABLE_TLS=false
+      - SUB2API_WRITE_CONFIG=true
       - RUN_MODE=standard
       - SETUP_MIGRATION_TIMEOUT_SECONDS=0
       - TZ=Asia/Shanghai

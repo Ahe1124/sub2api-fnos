@@ -1,10 +1,10 @@
 [
   {
-    "stepTitle": "确认卸载",
+    "stepTitle": "Confirm uninstall",
     "items": [
       {
         "type": "tips",
-        "helpText": "卸载会强制删除 Sub2API 容器、本地包装镜像 sub2api-fnos:0.1.0、应用共享目录 sub2api-docker、系统 PostgreSQL 中的 sub2api_fnos 数据库和 sub2api_fnos 用户。此操作不可恢复。"
+        "helpText": "Uninstall permanently removes the Sub2API container, local/prebuilt images, app data directory sub2api-docker, logs, Docker resources and legacy system PostgreSQL sub2api_fnos database/role if found. This cannot be recovered."
       }
     ]
   }

@@ -1,14 +1,10 @@
 #!/bin/bash
 set -u
 
-DATA_ROOT="/${TRIM_APPDEST_VOL}/@appshare/sub2api-docker"
-ENV_FILE="${DATA_ROOT}/sub2api.env"
-DB_NAME="sub2api_fnos"
-DB_USER="sub2api_fnos"
-IMAGE_TAG="sub2api-fnos:0.1.0"
-PREBUILT_IMAGE="__SUB2API_FNOS_IMAGE__"
 APP_NAME="sub2api"
 APP_SHARE="sub2api-docker"
+IMAGE_TAG="sub2api-fnos:0.1.3"
+PREBUILT_IMAGE="__SUB2API_FNOS_IMAGE__"
 
 log() {
     echo "[sub2api install] $*"
@@ -26,49 +22,6 @@ gen_secret() {
         tr -dc 'A-Za-z0-9' </dev/urandom | head -c 64
         echo
     fi
-}
-
-read_env_value() {
-    key="$1"
-    [ -s "${ENV_FILE}" ] || return 1
-    sed -n "s/^${key}=//p" "${ENV_FILE}" | head -n 1 | sed 's/^"//;s/"$//'
-}
-
-escape_env_value() {
-    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
-}
-
-write_env_line() {
-    key="$1"
-    value="$2"
-    printf '%s="%s"\n' "$key" "$(escape_env_value "$value")"
-}
-
-select_psql() {
-    if psql -U postgres -d postgres -tAc 'select 1' >/dev/null 2>&1; then
-        PSQL_CMD="psql -U postgres -d postgres"
-        return 0
-    fi
-    if command -v runuser >/dev/null 2>&1 && runuser -u postgres -- psql -d postgres -tAc 'select 1' >/dev/null 2>&1; then
-        PSQL_CMD="runuser -u postgres -- psql -d postgres"
-        return 0
-    fi
-    return 1
-}
-
-find_docker_dir() {
-    for candidate in \
-        "${TRIM_APPDEST:-}/docker" \
-        "$(cd "$(dirname "$0")" && pwd)/docker" \
-        "$(cd "$(dirname "$0")" && pwd)/../app/docker" \
-        "$(cd "$(dirname "$0")" && pwd)/../docker"
-    do
-        if [ -n "${candidate}" ] && [ -f "${candidate}/Dockerfile" ]; then
-            printf '%s\n' "${candidate}"
-            return 0
-        fi
-    done
-    return 1
 }
 
 detect_volume() {
@@ -93,17 +46,55 @@ detect_volume() {
     printf '/vol2\n'
 }
 
+APP_VOL="$(detect_volume)"
+TRIM_APPDEST_VOL="${APP_VOL#/}"
+export TRIM_APPDEST_VOL
+DATA_ROOT="${APP_VOL}/@appshare/${APP_SHARE}"
+ENV_FILE="${DATA_ROOT}/sub2api.env"
+
+read_env_value() {
+    key="$1"
+    [ -s "${ENV_FILE}" ] || return 1
+    sed -n "s/^${key}=//p" "${ENV_FILE}" | head -n 1 | sed 's/^"//;s/"$//'
+}
+
+escape_env_value() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+write_env_line() {
+    key="$1"
+    value="$2"
+    printf '%s="%s"\n' "$key" "$(escape_env_value "$value")"
+}
+
+find_docker_dir() {
+    for candidate in \
+        "${TRIM_APPDEST:-}/docker" \
+        "$(cd "$(dirname "$0")" && pwd)/docker" \
+        "$(cd "$(dirname "$0")" && pwd)/../app/docker" \
+        "$(cd "$(dirname "$0")" && pwd)/../docker" \
+        "${APP_VOL}/@appcenter/${APP_NAME}/docker" \
+        "${APP_VOL}/@appmeta/${APP_NAME}/cmd/docker"
+    do
+        if [ -n "${candidate}" ] && [ -f "${candidate}/Dockerfile" ]; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    done
+    return 1
+}
+
 find_compose_file() {
     script_dir="$(cd "$(dirname "$0")" && pwd)"
-    app_vol="$(detect_volume)"
 
     for candidate in \
         "${TRIM_APPDEST:-}/docker/docker-compose.yaml" \
         "${script_dir}/docker/docker-compose.yaml" \
         "${script_dir}/../app/docker/docker-compose.yaml" \
         "${script_dir}/../docker/docker-compose.yaml" \
-        "${app_vol}/@appcenter/${APP_NAME}/docker/docker-compose.yaml" \
-        "${app_vol}/@appmeta/${APP_NAME}/cmd/docker/docker-compose.yaml" \
+        "${APP_VOL}/@appcenter/${APP_NAME}/docker/docker-compose.yaml" \
+        "${APP_VOL}/@appmeta/${APP_NAME}/cmd/docker/docker-compose.yaml" \
         /vol*/@appcenter/"${APP_NAME}"/docker/docker-compose.yaml \
         /vol*/@appmeta/"${APP_NAME}"/cmd/docker/docker-compose.yaml
     do
@@ -120,12 +111,12 @@ prepare_app_image() {
         fail "docker command not found"
     fi
 
-    if docker inspect -f '{{.State.Running}}' sub2api 2>/dev/null | grep -q true; then
-        log "sub2api container is already running; skip image rebuild"
+    if docker inspect -f '{{.State.Running}}' "${APP_NAME}" 2>/dev/null | grep -q true; then
+        log "${APP_NAME} container is already running; skip image rebuild"
         return 0
     fi
 
-    docker rm -f sub2api sub2api-redis >/dev/null 2>&1 || true
+    docker rm -f "${APP_NAME}" "${APP_NAME}-redis" >/dev/null 2>&1 || true
 
     if [ -n "${PREBUILT_IMAGE}" ] && [ "${PREBUILT_IMAGE}" != "__SUB2API_FNOS_IMAGE__" ]; then
         log "pulling prebuilt image ${PREBUILT_IMAGE}"
@@ -144,22 +135,22 @@ start_app() {
     if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
         fail "docker is not available"
     fi
-    APP_VOL="$(detect_volume)"
-    TRIM_APPDEST_VOL="${APP_VOL#/}"
-    export TRIM_APPDEST_VOL
     COMPOSE_FILE="$(find_compose_file)" || fail "docker-compose.yaml not found"
     docker compose -p "${APP_NAME}" -f "${COMPOSE_FILE}" up -d --remove-orphans || fail "failed to start ${APP_NAME}"
 }
 
-mkdir -p "${DATA_ROOT}/data" "${DATA_ROOT}/data/redis"
-chmod 700 "${DATA_ROOT}" "${DATA_ROOT}/data/redis" 2>/dev/null || true
-
-if ! command -v psql >/dev/null 2>&1; then
-    fail "system PostgreSQL client psql not found"
-fi
-
-systemctl start postgresql >/dev/null 2>&1 || true
-select_psql || fail "cannot connect to system PostgreSQL as postgres"
+mkdir -p \
+    "${DATA_ROOT}/data" \
+    "${DATA_ROOT}/data/postgresql" \
+    "${DATA_ROOT}/data/postgresql-run" \
+    "${DATA_ROOT}/data/redis" \
+    "${DATA_ROOT}/data/logs"
+chmod 700 \
+    "${DATA_ROOT}" \
+    "${DATA_ROOT}/data" \
+    "${DATA_ROOT}/data/postgresql" \
+    "${DATA_ROOT}/data/postgresql-run" \
+    "${DATA_ROOT}/data/redis" 2>/dev/null || true
 
 if [ -s "${ENV_FILE}" ]; then
     DATABASE_PASSWORD="$(read_env_value DATABASE_PASSWORD)"
@@ -184,22 +175,31 @@ UPDATE_PROXY_URL="${wizard_update_proxy_url:-}"
 umask 077
 {
     write_env_line DATABASE_HOST "127.0.0.1"
-    write_env_line DATABASE_PORT "5432"
-    write_env_line DATABASE_USER "${DB_USER}"
+    write_env_line DATABASE_PORT "15432"
+    write_env_line DATABASE_USER "sub2api_fnos"
     write_env_line DATABASE_PASSWORD "${DATABASE_PASSWORD}"
-    write_env_line DATABASE_DBNAME "${DB_NAME}"
+    write_env_line DATABASE_DBNAME "sub2api_fnos"
     write_env_line DATABASE_SSLMODE "disable"
     write_env_line DATABASE_MAX_OPEN_CONNS "50"
     write_env_line DATABASE_MAX_IDLE_CONNS "10"
     write_env_line DATABASE_CONN_MAX_LIFETIME_MINUTES "30"
     write_env_line DATABASE_CONN_MAX_IDLE_TIME_MINUTES "5"
+    write_env_line POSTGRES_BIND "127.0.0.1"
+    write_env_line POSTGRES_PORT "15432"
+    write_env_line POSTGRES_DB "sub2api_fnos"
+    write_env_line POSTGRES_USER "sub2api_fnos"
+    write_env_line POSTGRES_PASSWORD "${DATABASE_PASSWORD}"
+    write_env_line POSTGRES_DATA_DIR "/app/data/postgresql"
+    write_env_line POSTGRES_RUN_DIR "/app/data/postgresql-run"
     write_env_line REDIS_HOST "127.0.0.1"
-    write_env_line REDIS_PORT "6379"
+    write_env_line REDIS_PORT "16379"
     write_env_line REDIS_PASSWORD "${REDIS_PASSWORD}"
     write_env_line REDIS_DB "0"
     write_env_line REDIS_POOL_SIZE "1024"
     write_env_line REDIS_MIN_IDLE_CONNS "10"
     write_env_line REDIS_ENABLE_TLS "false"
+    write_env_line REDIS_DATA_DIR "/app/data/redis"
+    write_env_line SUB2API_WRITE_CONFIG "true"
     write_env_line ADMIN_EMAIL "${ADMIN_EMAIL}"
     write_env_line ADMIN_PASSWORD "${ADMIN_PASSWORD}"
     write_env_line JWT_SECRET "${JWT_SECRET}"
@@ -210,38 +210,7 @@ umask 077
 chmod 600 "${ENV_FILE}"
 
 prepare_app_image
-
-${PSQL_CMD} -v ON_ERROR_STOP=1 <<SQL
-DO \$\$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${DB_USER}') THEN
-    CREATE ROLE ${DB_USER} LOGIN PASSWORD '${DATABASE_PASSWORD}';
-  ELSE
-    ALTER ROLE ${DB_USER} WITH LOGIN PASSWORD '${DATABASE_PASSWORD}';
-  END IF;
-END
-\$\$;
-SELECT 'CREATE DATABASE ${DB_NAME} OWNER ${DB_USER} ENCODING ''UTF8'''
-WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}')\gexec
-ALTER DATABASE ${DB_NAME} OWNER TO ${DB_USER};
-GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};
-SQL
-
-HBA_FILE="$(${PSQL_CMD} -Atc 'show hba_file;' 2>/dev/null | head -n 1)"
-if [ -n "${HBA_FILE}" ] && [ -f "${HBA_FILE}" ]; then
-    sed -i '/sub2api-fnos-begin/,/sub2api-fnos-end/d' "${HBA_FILE}" || true
-    cat >> "${HBA_FILE}" <<EOF_HBA
-# sub2api-fnos-begin
-host    postgres       ${DB_USER}    127.0.0.1/32    md5
-host    postgres       ${DB_USER}    ::1/128         md5
-host    ${DB_NAME}     ${DB_USER}    127.0.0.1/32    md5
-host    ${DB_NAME}     ${DB_USER}    ::1/128         md5
-# sub2api-fnos-end
-EOF_HBA
-    systemctl reload postgresql >/dev/null 2>&1 || true
-fi
-
-log "prepared PostgreSQL database ${DB_NAME} and application data in ${DATA_ROOT}"
+log "prepared embedded PostgreSQL, Redis and application data in ${DATA_ROOT}"
 start_app
 log "started ${APP_NAME}"
 exit 0

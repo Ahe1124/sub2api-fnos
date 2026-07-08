@@ -11,7 +11,7 @@ on:
 
 env:
   IMAGE_NAME: sub2api-fnos
-  IMAGE_VERSION: 0.1.0
+  IMAGE_VERSION: 0.1.3
 
 permissions:
   contents: read
@@ -57,7 +57,7 @@ jobs:
           push: true
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.description=Sub2API fnOS single-container image with embedded Redis
+            org.opencontainers.image.description=Sub2API fnOS single-container image with embedded PostgreSQL and Redis
           tags: |
             ${{ steps.image.outputs.name }}:${{ env.IMAGE_VERSION }}
             ${{ steps.image.outputs.name }}:latest

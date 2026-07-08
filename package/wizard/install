@@ -1,36 +1,36 @@
 [
   {
-    "stepTitle": "Sub2API 设置",
+    "stepTitle": "Sub2API Setup",
     "items": [
       {
         "type": "tips",
-        "helpText": "安装会复用系统 PostgreSQL，自动创建独立数据库 sub2api_fnos 和用户 sub2api_fnos；Redis 会内嵌在同一个 Sub2API 容器中。Compose 只启动一个 host 网络容器，Sub2API 监听 0.0.0.0:8088，Redis 只监听 127.0.0.1:6379。卸载时会强制删除容器、本地包装镜像、应用共享目录、数据库和数据库用户。"
+        "helpText": "Install starts one host-network Docker container. Sub2API listens on 0.0.0.0:8088. PostgreSQL and Redis are embedded in the same container and store data under the selected install volume: @appshare/sub2api-docker/data. PostgreSQL uses 127.0.0.1:15432 and Redis uses 127.0.0.1:16379. Uninstall removes the container, image, app data, logs and legacy system PostgreSQL sub2api_fnos database/role if found."
       },
       {
         "type": "text",
         "field": "wizard_admin_email",
-        "label": "管理员邮箱",
+        "label": "Admin email",
         "initValue": "admin@sub2api.local",
         "rules": [
           {
             "required": true,
-            "message": "请输入管理员邮箱"
+            "message": "Please enter an admin email"
           }
         ]
       },
       {
         "type": "password",
         "field": "wizard_admin_password",
-        "label": "管理员密码",
+        "label": "Admin password",
         "initValue": "",
-        "helpText": "可留空，Sub2API 会在首次启动时自动生成；自动生成的密码需要从容器日志查看。"
+        "helpText": "Optional. If left empty, Sub2API generates one on first startup and prints it in container logs."
       },
       {
         "type": "text",
         "field": "wizard_update_proxy_url",
-        "label": "更新代理",
+        "label": "Update proxy",
         "initValue": "",
-        "helpText": "可选。用于在线更新或访问 GitHub 的代理，例如 http://host:port 或 socks5://host:port。"
+        "helpText": "Optional proxy for online update or GitHub access, such as http://host:port or socks5://host:port."
       }
     ]
   }
