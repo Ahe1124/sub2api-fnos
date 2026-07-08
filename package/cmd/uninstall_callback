@@ -65,9 +65,24 @@ if command -v psql >/dev/null 2>&1 && select_psql; then
     fi
 
     ${PSQL_CMD} -v ON_ERROR_STOP=0 <<SQL
+DO \$\$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${DB_USER}') THEN
+    EXECUTE 'REVOKE CONNECT ON DATABASE postgres FROM ${DB_USER}';
+    EXECUTE 'REVOKE CONNECT ON DATABASE ${DB_NAME} FROM ${DB_USER}';
+  END IF;
+END
+\$\$;
 REVOKE CONNECT ON DATABASE ${DB_NAME} FROM PUBLIC;
 SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_NAME}';
 DROP DATABASE IF EXISTS ${DB_NAME};
+DO \$\$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${DB_USER}') THEN
+    EXECUTE 'DROP OWNED BY ${DB_USER}';
+  END IF;
+END
+\$\$;
 DROP ROLE IF EXISTS ${DB_USER};
 SQL
 fi
@@ -81,7 +96,14 @@ rm -rf \
     "${APP_VOL}/@apphome/${APP_NAME}" \
     "${APP_VOL}/@appmeta/${APP_NAME}" \
     "${TRIM_PKGVAR:-/var/empty/sub2api-unused}" \
+    /vol*/@appshare/sub2api-docker \
+    /vol*/@appcenter/"${APP_NAME}" \
+    /vol*/@appconf/"${APP_NAME}" \
+    /vol*/@apphome/"${APP_NAME}" \
+    /vol*/@appmeta/"${APP_NAME}" \
+    /vol*/appcenter-downloads/"${APP_NAME}"-* \
     "/var/log/apps/${APP_NAME}.log" \
+    "/var/log/apps/${APP_NAME}" \
     "/var/packages/${APP_NAME}" \
     "/var/apps/${APP_NAME}" \
     "/var/appdata/${APP_NAME}"

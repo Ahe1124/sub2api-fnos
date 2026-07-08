@@ -229,14 +229,15 @@ SQL
 
 HBA_FILE="$(${PSQL_CMD} -Atc 'show hba_file;' 2>/dev/null | head -n 1)"
 if [ -n "${HBA_FILE}" ] && [ -f "${HBA_FILE}" ]; then
-    if ! grep -q "sub2api-fnos-begin" "${HBA_FILE}"; then
-        cat >> "${HBA_FILE}" <<EOF_HBA
+    sed -i '/sub2api-fnos-begin/,/sub2api-fnos-end/d' "${HBA_FILE}" || true
+    cat >> "${HBA_FILE}" <<EOF_HBA
 # sub2api-fnos-begin
-host    ${DB_NAME}    ${DB_USER}    127.0.0.1/32    md5
-host    ${DB_NAME}    ${DB_USER}    ::1/128         md5
+host    postgres       ${DB_USER}    127.0.0.1/32    md5
+host    postgres       ${DB_USER}    ::1/128         md5
+host    ${DB_NAME}     ${DB_USER}    127.0.0.1/32    md5
+host    ${DB_NAME}     ${DB_USER}    ::1/128         md5
 # sub2api-fnos-end
 EOF_HBA
-    fi
     systemctl reload postgresql >/dev/null 2>&1 || true
 fi
 
