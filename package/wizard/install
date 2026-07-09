@@ -4,7 +4,7 @@
     "items": [
       {
         "type": "tips",
-        "helpText": "安装后只会启动一个使用 host 网络的 Docker 容器。Sub2API 监听 0.0.0.0:8088。PostgreSQL 和 Redis 已内嵌在同一个容器中，数据会保存到所选安装盘的 @appshare/sub2api-docker/data 目录。卸载时会清理容器、镜像、应用数据、日志和旧版本可能创建的 PostgreSQL 数据库账号。"
+        "helpText": "安装后只会启动一个使用 host 网络的 Docker 容器。Sub2API 监听 0.0.0.0:8088。PostgreSQL 和 Redis 已内嵌在同一个容器中，数据会保存到所选安装盘的 @appshare/sub2api-docker/data 目录。管理后台里的立即更新会持久生效，卸载时会清理容器、镜像、应用数据、日志和旧版本可能创建的 PostgreSQL 数据库账号。"
       },
       {
         "type": "text",

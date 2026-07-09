@@ -1,2 +1,5 @@
 #!/bin/bash
-exit 0
+set -u
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec "${SCRIPT_DIR}/install_callback"

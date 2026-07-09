@@ -4,7 +4,7 @@ set -u
 DATA_ROOT="/${TRIM_APPDEST_VOL}/@appshare/sub2api-docker"
 DB_NAME="sub2api_fnos"
 DB_USER="sub2api_fnos"
-IMAGE_TAG="sub2api-fnos:0.1.4"
+IMAGE_TAG="sub2api-fnos:0.1.147"
 PREBUILT_IMAGE="__SUB2API_FNOS_IMAGE__"
 APP_NAME="sub2api"
 
@@ -50,14 +50,14 @@ if command -v docker >/dev/null 2>&1; then
     docker network ls --format '{{.Name}}' | grep -i sub2api | while read -r network_name; do
         [ -n "${network_name}" ] && docker network rm "${network_name}" >/dev/null 2>&1 || true
     done
-    docker image rm "${IMAGE_TAG}" sub2api-fnos:0.1.3 sub2api-fnos:0.1.2 sub2api-fnos:0.1.1 sub2api-fnos:0.1.0 >/dev/null 2>&1 || true
+    docker image rm "${IMAGE_TAG}" sub2api-fnos:0.1.4 sub2api-fnos:0.1.3 sub2api-fnos:0.1.2 sub2api-fnos:0.1.1 sub2api-fnos:0.1.0 >/dev/null 2>&1 || true
     if [ -n "${PREBUILT_IMAGE}" ] && [ "${PREBUILT_IMAGE}" != "__SUB2API_FNOS_IMAGE__" ]; then
         docker image rm "${PREBUILT_IMAGE}" >/dev/null 2>&1 || true
     fi
     docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -E '^(sub2api-fnos|ghcr\.io/.*/sub2api-fnos):' | while read -r image_name; do
         [ -n "${image_name}" ] && docker image rm "${image_name}" >/dev/null 2>&1 || true
     done
-    docker image rm weishaw/sub2api:latest redis:8-alpine >/dev/null 2>&1 || true
+    docker image rm weishaw/sub2api:0.1.147 weishaw/sub2api:latest redis:8-alpine >/dev/null 2>&1 || true
 fi
 
 if command -v psql >/dev/null 2>&1 && select_psql; then

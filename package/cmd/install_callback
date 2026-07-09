@@ -3,7 +3,7 @@ set -u
 
 APP_NAME="sub2api"
 APP_SHARE="sub2api-docker"
-IMAGE_TAG="sub2api-fnos:0.1.4"
+IMAGE_TAG="sub2api-fnos:0.1.147"
 PREBUILT_IMAGE="__SUB2API_FNOS_IMAGE__"
 
 log() {
@@ -111,11 +111,6 @@ prepare_app_image() {
         fail "docker command not found"
     fi
 
-    if docker inspect -f '{{.State.Running}}' "${APP_NAME}" 2>/dev/null | grep -q true; then
-        log "${APP_NAME} container is already running; skip image rebuild"
-        return 0
-    fi
-
     docker rm -f "${APP_NAME}" "${APP_NAME}-redis" >/dev/null 2>&1 || true
 
     if [ -n "${PREBUILT_IMAGE}" ] && [ "${PREBUILT_IMAGE}" != "__SUB2API_FNOS_IMAGE__" ]; then
@@ -157,19 +152,23 @@ if [ -s "${ENV_FILE}" ]; then
     REDIS_PASSWORD="$(read_env_value REDIS_PASSWORD)"
     JWT_SECRET="$(read_env_value JWT_SECRET)"
     TOTP_ENCRYPTION_KEY="$(read_env_value TOTP_ENCRYPTION_KEY)"
+    EXISTING_ADMIN_EMAIL="$(read_env_value ADMIN_EMAIL || true)"
+    EXISTING_ADMIN_PASSWORD="$(read_env_value ADMIN_PASSWORD || true)"
 else
     DATABASE_PASSWORD="$(gen_secret)"
     REDIS_PASSWORD="$(gen_secret)"
     JWT_SECRET="$(gen_secret)"
     TOTP_ENCRYPTION_KEY="$(gen_secret)"
+    EXISTING_ADMIN_EMAIL=""
+    EXISTING_ADMIN_PASSWORD=""
 fi
 [ -n "${DATABASE_PASSWORD:-}" ] || DATABASE_PASSWORD="$(gen_secret)"
 [ -n "${REDIS_PASSWORD:-}" ] || REDIS_PASSWORD="$(gen_secret)"
 [ -n "${JWT_SECRET:-}" ] || JWT_SECRET="$(gen_secret)"
 [ -n "${TOTP_ENCRYPTION_KEY:-}" ] || TOTP_ENCRYPTION_KEY="$(gen_secret)"
 
-ADMIN_EMAIL="${wizard_admin_email:-admin@52o.ink}"
-ADMIN_PASSWORD="${wizard_admin_password:-}"
+ADMIN_EMAIL="${wizard_admin_email:-${EXISTING_ADMIN_EMAIL:-admin@52o.ink}}"
+ADMIN_PASSWORD="${wizard_admin_password:-${EXISTING_ADMIN_PASSWORD:-}}"
 
 [ -n "${ADMIN_EMAIL}" ] || fail "请填写管理员邮箱"
 [ -n "${ADMIN_PASSWORD}" ] || fail "请填写管理员密码"

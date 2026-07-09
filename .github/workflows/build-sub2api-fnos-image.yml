@@ -11,7 +11,7 @@ on:
 
 env:
   IMAGE_NAME: sub2api-fnos
-  IMAGE_VERSION: 0.1.4
+  IMAGE_VERSION: 0.1.147
 
 permissions:
   contents: read

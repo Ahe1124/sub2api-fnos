@@ -38,6 +38,9 @@ JWT_SECRET="${JWT_SECRET:-}"
 TOTP_ENCRYPTION_KEY="${TOTP_ENCRYPTION_KEY:-}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
+RUNTIME_BIN_DIR="${SUB2API_RUNTIME_BIN_DIR:-${DATA_DIR}/runtime}"
+RUNTIME_BIN="${SUB2API_RUNTIME_BIN:-${RUNTIME_BIN_DIR}/sub2api}"
+PACKAGED_BIN="${PACKAGED_SUB2API_BIN:-/app/sub2api}"
 
 if [ -z "${POSTGRES_PASSWORD}" ]; then
     echo "[sub2api-fnos] DATABASE_PASSWORD or POSTGRES_PASSWORD is required" >&2
@@ -65,10 +68,61 @@ sql_escape() {
 }
 
 prepare_dirs() {
-    mkdir -p "${DATA_DIR}" "${LOG_DIR}" "${POSTGRES_DATA_DIR}" "${POSTGRES_RUN_DIR}" "${REDIS_DIR}"
-    chmod 700 "${DATA_DIR}" "${POSTGRES_DATA_DIR}" "${POSTGRES_RUN_DIR}" "${REDIS_DIR}" 2>/dev/null || true
+    mkdir -p "${DATA_DIR}" "${LOG_DIR}" "${POSTGRES_DATA_DIR}" "${POSTGRES_RUN_DIR}" "${REDIS_DIR}" "${RUNTIME_BIN_DIR}"
+    chmod 700 "${DATA_DIR}" "${POSTGRES_DATA_DIR}" "${POSTGRES_RUN_DIR}" "${REDIS_DIR}" "${RUNTIME_BIN_DIR}" 2>/dev/null || true
     if [ "$(id -u)" = "0" ]; then
         chown -R "${APP_USER}:${APP_USER}" "${DATA_DIR}" 2>/dev/null || true
+    fi
+}
+
+binary_version() {
+    bin="$1"
+    [ -x "${bin}" ] || return 1
+    "${bin}" --version 2>/dev/null | sed -n 's/.*\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -n 1
+}
+
+version_gt() {
+    awk -v a="${1#v}" -v b="${2#v}" 'BEGIN {
+        split(a, A, "."); split(b, B, ".");
+        for (i = 1; i <= 3; i++) {
+            ai = A[i] + 0; bi = B[i] + 0;
+            if (ai > bi) exit 0;
+            if (ai < bi) exit 1;
+        }
+        exit 1;
+    }'
+}
+
+copy_packaged_binary() {
+    tmp="${RUNTIME_BIN}.new"
+    cp "${PACKAGED_BIN}" "${tmp}"
+    chmod 0755 "${tmp}"
+    if [ "$(id -u)" = "0" ]; then
+        chown "${APP_USER}:${APP_USER}" "${tmp}" 2>/dev/null || true
+    fi
+    mv -f "${tmp}" "${RUNTIME_BIN}"
+}
+
+prepare_runtime_binary() {
+    if [ ! -x "${PACKAGED_BIN}" ]; then
+        echo "[sub2api-fnos] packaged binary not found: ${PACKAGED_BIN}" >&2
+        exit 1
+    fi
+
+    if [ ! -x "${RUNTIME_BIN}" ]; then
+        copy_packaged_binary
+    else
+        packaged_version="$(binary_version "${PACKAGED_BIN}" || true)"
+        runtime_version="$(binary_version "${RUNTIME_BIN}" || true)"
+        if [ -n "${packaged_version}" ] && { [ -z "${runtime_version}" ] || version_gt "${packaged_version}" "${runtime_version}"; }; then
+            echo "[sub2api-fnos] upgrading runtime binary ${runtime_version} -> ${packaged_version}"
+            copy_packaged_binary
+        fi
+    fi
+
+    chmod 0755 "${RUNTIME_BIN}" 2>/dev/null || true
+    if [ "$(id -u)" = "0" ]; then
+        chown "${APP_USER}:${APP_USER}" "${RUNTIME_BIN}" "${RUNTIME_BIN_DIR}" 2>/dev/null || true
     fi
 }
 
@@ -306,10 +360,16 @@ cleanup() {
 trap cleanup INT TERM EXIT
 
 prepare_dirs
+prepare_runtime_binary
 start_postgres
 prepare_database
 start_redis
 write_app_config
+
+if [ "${1:-}" = "${PACKAGED_BIN}" ]; then
+    shift
+    set -- "${RUNTIME_BIN}" "$@"
+fi
 
 as_app "$@" &
 app_pid="$!"
