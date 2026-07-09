@@ -212,6 +212,11 @@ prepare_app_image() {
 
     docker rm -f "${APP_NAME}" "${APP_NAME}-redis" >/dev/null 2>&1 || true
 
+    if docker image inspect "${IMAGE_TAG}" >/dev/null 2>&1; then
+        log "using existing local image ${IMAGE_TAG}"
+        return 0
+    fi
+
     if [ -n "${PREBUILT_IMAGE}" ] && [ "${PREBUILT_IMAGE}" != "__SUB2API_FNOS_IMAGE__" ]; then
         log "pulling prebuilt image ${PREBUILT_IMAGE}"
         if docker pull "${PREBUILT_IMAGE}" && docker tag "${PREBUILT_IMAGE}" "${IMAGE_TAG}"; then
