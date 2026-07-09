@@ -4,7 +4,7 @@ set -u
 DATA_ROOT="/${TRIM_APPDEST_VOL}/@appshare/sub2api-docker"
 DB_NAME="sub2api_fnos"
 DB_USER="sub2api_fnos"
-IMAGE_TAG="sub2api-fnos:0.1.4"
+IMAGE_TAG="sub2api-fnos:0.1.147"
 PREBUILT_IMAGE="__SUB2API_FNOS_IMAGE__"
 APP_NAME="sub2api"
 
