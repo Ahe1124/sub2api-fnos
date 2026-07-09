@@ -5,7 +5,9 @@
 安装后只会启动一个 Docker Compose 项目，并且只运行一个容器：
 
 - 容器名：`sub2api`
-- 镜像名：`sub2api-fnos:0.1.147`
+- 飞牛包版本：`0.1.147`
+- 基础镜像名：`sub2api-fnos:0.1.4`
+- Sub2API 运行二进制：安装/升级时从官方 Release 下载 `0.1.147` 到应用数据目录，后台“立即更新”会继续更新这个持久化二进制。
 - 网络模式：host
 - 访问端口：`0.0.0.0:8088`
 
@@ -22,7 +24,7 @@ Windows 本地打包：
 打包为拉取预构建镜像的 FPK：
 
 ```powershell
-.\build_sub2api_fpk.ps1 -Image "ghcr.io/<github-owner-lowercase>/sub2api-fnos:0.1.147"
+.\build_sub2api_fpk.ps1 -Image "ghcr.io/<github-owner-lowercase>/sub2api-fnos:0.1.4"
 ```
 
 生成的安装包会写入 `dist/sub2api-docker_0.1.147.fpk`。
@@ -31,7 +33,7 @@ GitHub Actions：
 
 - 推送这个目录到 GitHub 仓库。
 - 在 Actions 页面运行 `Build Sub2API fnOS Image`。
-- 工作流会发布 `ghcr.io/<github-owner-lowercase>/sub2api-fnos:0.1.147` 和 `latest`。
+- 工作流用于构建基础镜像。当前 FPK 复用已发布的 `ghcr.io/<github-owner-lowercase>/sub2api-fnos:0.1.4`，运行程序由安装脚本从 Sub2API 官方 Release 下载到持久化数据目录。
 - 镜像发布后，用 `-Image` 重新打包 FPK，飞牛安装时就会直接拉预构建镜像。
 
 安装说明：

@@ -1,7 +1,8 @@
 services:
   sub2api:
-    image: sub2api-fnos:0.1.147
+    image: sub2api-fnos:0.1.4
     container_name: sub2api
+    command: ["/app/data/runtime/sub2api"]
     restart: always
     network_mode: host
     ulimits:

@@ -12,4 +12,4 @@ desktop_uidir=ui
 desktop_applaunchname=sub2api.proxy.Application
 service_port=8088
 checkport=true
-changelog=更新 Sub2API 到 0.1.147，补齐飞牛应用升级流程，并让管理后台“立即更新”写入持久化运行目录。升级会保留应用数据、数据库、Redis 数据、管理员账号密码和密钥，仅替换容器镜像并重建容器。
+changelog=更新 Sub2API 到 0.1.147，安装和升级时复用已发布的预构建基础镜像，并把官方二进制写入持久化运行目录。管理后台“立即更新”会直接更新这个持久化二进制，NAS 不再本地编译。升级会保留应用数据、数据库、Redis 数据、管理员账号密码和密钥。

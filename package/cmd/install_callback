@@ -3,7 +3,8 @@ set -u
 
 APP_NAME="sub2api"
 APP_SHARE="sub2api-docker"
-IMAGE_TAG="sub2api-fnos:0.1.147"
+IMAGE_TAG="sub2api-fnos:0.1.4"
+APP_RUNTIME_VERSION="0.1.147"
 PREBUILT_IMAGE="__SUB2API_FNOS_IMAGE__"
 
 log() {
@@ -68,6 +69,104 @@ write_env_line() {
     printf '%s="%s"\n' "$key" "$(escape_env_value "$value")"
 }
 
+detect_arch() {
+    case "$(uname -m)" in
+        x86_64|amd64)
+            printf 'amd64\n'
+            ;;
+        aarch64|arm64)
+            printf 'arm64\n'
+            ;;
+        *)
+            fail "unsupported architecture: $(uname -m)"
+            ;;
+    esac
+}
+
+download_file() {
+    url="$1"
+    dest="$2"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fL --connect-timeout 20 --retry 3 --retry-delay 2 -o "${dest}" "${url}"
+        return $?
+    fi
+    if command -v wget >/dev/null 2>&1; then
+        wget -O "${dest}" "${url}"
+        return $?
+    fi
+    fail "curl or wget is required to download Sub2API runtime"
+}
+
+binary_version() {
+    bin="$1"
+    [ -x "${bin}" ] || return 1
+    "${bin}" --version 2>/dev/null | sed -n 's/.*\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -n 1
+}
+
+version_gt() {
+    awk -v a="${1#v}" -v b="${2#v}" 'BEGIN {
+        split(a, A, "."); split(b, B, ".");
+        for (i = 1; i <= 3; i++) {
+            ai = A[i] + 0; bi = B[i] + 0;
+            if (ai > bi) exit 0;
+            if (ai < bi) exit 1;
+        }
+        exit 1;
+    }'
+}
+
+prepare_runtime_binary() {
+    runtime_dir="${DATA_ROOT}/data/runtime"
+    runtime_bin="${runtime_dir}/sub2api"
+    mkdir -p "${runtime_dir}"
+
+    current_version="$(binary_version "${runtime_bin}" || true)"
+    if [ -n "${current_version}" ] && ! version_gt "${APP_RUNTIME_VERSION}" "${current_version}"; then
+        log "runtime binary ${current_version} is already >= ${APP_RUNTIME_VERSION}"
+        chmod 0755 "${runtime_bin}" 2>/dev/null || true
+        return 0
+    fi
+
+    arch="$(detect_arch)"
+    archive="sub2api_${APP_RUNTIME_VERSION}_linux_${arch}.tar.gz"
+    base_url="https://github.com/Wei-Shaw/sub2api/releases/download/v${APP_RUNTIME_VERSION}"
+    tmp_dir="$(mktemp -d)"
+    log "downloading Sub2API runtime ${APP_RUNTIME_VERSION} for linux/${arch}"
+
+    download_file "${base_url}/${archive}" "${tmp_dir}/${archive}" || {
+        rm -rf "${tmp_dir}"
+        fail "failed to download ${archive}"
+    }
+    download_file "${base_url}/checksums.txt" "${tmp_dir}/checksums.txt" || {
+        rm -rf "${tmp_dir}"
+        fail "failed to download checksums.txt"
+    }
+    (cd "${tmp_dir}" && grep "${archive}" checksums.txt | sha256sum -c -) || {
+        rm -rf "${tmp_dir}"
+        fail "checksum verification failed for ${archive}"
+    }
+    tar -xzf "${tmp_dir}/${archive}" -C "${tmp_dir}" || {
+        rm -rf "${tmp_dir}"
+        fail "failed to extract ${archive}"
+    }
+    new_bin="$(find "${tmp_dir}" -type f -name sub2api | head -n 1)"
+    [ -n "${new_bin}" ] || {
+        rm -rf "${tmp_dir}"
+        fail "sub2api binary not found in ${archive}"
+    }
+
+    chmod 0755 "${new_bin}"
+    "${new_bin}" --version >/dev/null 2>&1 || {
+        rm -rf "${tmp_dir}"
+        fail "downloaded sub2api binary is not executable"
+    }
+    cp "${new_bin}" "${runtime_bin}.new"
+    chmod 0755 "${runtime_bin}.new"
+    mv -f "${runtime_bin}.new" "${runtime_bin}"
+    rm -rf "${tmp_dir}"
+    log "prepared persistent runtime binary ${APP_RUNTIME_VERSION} at ${runtime_bin}"
+}
+
 find_docker_dir() {
     for candidate in \
         "${TRIM_APPDEST:-}/docker" \
@@ -119,7 +218,7 @@ prepare_app_image() {
             log "prepared ${IMAGE_TAG} from ${PREBUILT_IMAGE}"
             return 0
         fi
-        log "prebuilt image pull failed; falling back to local build"
+        fail "prebuilt image pull failed: ${PREBUILT_IMAGE}"
     fi
 
     DOCKER_DIR="$(find_docker_dir)" || fail "docker package directory not found"
@@ -209,6 +308,7 @@ umask 077
 } > "${ENV_FILE}"
 chmod 600 "${ENV_FILE}"
 
+prepare_runtime_binary
 prepare_app_image
 log "prepared embedded PostgreSQL, Redis and application data in ${DATA_ROOT}"
 start_app
