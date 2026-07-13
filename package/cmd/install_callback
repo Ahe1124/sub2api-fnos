@@ -3,8 +3,8 @@ set -u
 
 APP_NAME="sub2api"
 APP_SHARE="sub2api-docker"
-IMAGE_TAG="sub2api-fnos:0.1.147"
-APP_RUNTIME_VERSION="0.1.147"
+IMAGE_TAG="sub2api-fnos:0.1.152"
+APP_RUNTIME_VERSION="0.1.152"
 PREBUILT_IMAGE="__SUB2API_FNOS_IMAGE__"
 
 log() {
@@ -52,6 +52,30 @@ TRIM_APPDEST_VOL="${APP_VOL#/}"
 export TRIM_APPDEST_VOL
 DATA_ROOT="${APP_VOL}/@appshare/${APP_SHARE}"
 ENV_FILE="${DATA_ROOT}/sub2api.env"
+
+ensure_app_target_link() {
+    appcenter_dir="${APP_VOL}/@appcenter/${APP_NAME}"
+    var_app_dir="/var/apps/${APP_NAME}"
+    target_path="${var_app_dir}/target"
+
+    [ -d "${appcenter_dir}" ] || return 0
+    mkdir -p "${var_app_dir}" 2>/dev/null || true
+
+    if [ -L "${target_path}" ]; then
+        current_target="$(readlink "${target_path}" 2>/dev/null || true)"
+        [ "${current_target}" = "${appcenter_dir}" ] || ln -sfn "${appcenter_dir}" "${target_path}"
+        return 0
+    fi
+
+    if [ ! -e "${target_path}" ]; then
+        ln -s "${appcenter_dir}" "${target_path}" 2>/dev/null || true
+        return 0
+    fi
+
+    if [ -d "${target_path}" ] && [ ! -f "${target_path}/docker/docker-compose.yaml" ]; then
+        rmdir "${target_path}" 2>/dev/null && ln -s "${appcenter_dir}" "${target_path}" 2>/dev/null || true
+    fi
+}
 
 read_env_value() {
     key="$1"
@@ -250,6 +274,8 @@ chmod 700 \
     "${DATA_ROOT}/data/postgresql" \
     "${DATA_ROOT}/data/postgresql-run" \
     "${DATA_ROOT}/data/redis" 2>/dev/null || true
+
+ensure_app_target_link
 
 if [ -s "${ENV_FILE}" ]; then
     DATABASE_PASSWORD="$(read_env_value DATABASE_PASSWORD)"

@@ -2,7 +2,7 @@
 
 FROM redis:8-alpine AS redis
 
-FROM weishaw/sub2api:0.1.147
+FROM weishaw/sub2api:0.1.152
 
 USER root
 

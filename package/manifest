@@ -1,5 +1,5 @@
 appname=sub2api
-version=0.1.147
+version=0.1.152
 display_name=Sub2API
 desc="""<p><strong>简介：</strong>Sub2API 是一个用于 API Key、账号池、计费、负载均衡和请求转发的 AI API 网关平台。</p><p><strong>打包方式：</strong>飞牛 Docker 应用，安装后只运行一个 <code>sub2api</code> 容器，并使用 host 网络。Sub2API 监听 <code>0.0.0.0:8088</code>。</p><p><strong>数据存储：</strong>PostgreSQL 和 Redis 已内嵌在同一个容器中。PostgreSQL 监听 <code>127.0.0.1:15432</code>，Redis 监听 <code>127.0.0.1:16379</code>，所有数据都会保存到所选安装盘的 <code>@appshare/sub2api-docker/data</code> 目录。</p><p><strong>在线更新：</strong>Sub2API 运行二进制保存在应用数据目录，管理后台里的“立即更新”会持久生效，更新后按页面提示重启即可。</p><p><strong>卸载清理：</strong>卸载时会删除容器、镜像、应用数据目录、日志、Docker 相关资源，以及旧版本可能创建的系统 PostgreSQL 数据库和账号。</p><p><strong>项目源码：</strong><a href="https://github.com/Wei-Shaw/sub2api" target="_blank">Wei-Shaw/sub2api</a></p>"""
 platform=all
@@ -12,4 +12,4 @@ desktop_uidir=ui
 desktop_applaunchname=sub2api.proxy.Application
 service_port=8088
 checkport=true
-changelog=更新 Sub2API 到 0.1.147，安装和升级时复用已发布的预构建基础镜像，并把官方二进制写入持久化运行目录。管理后台“立即更新”会直接更新这个持久化二进制，NAS 不再本地编译。升级会保留应用数据、数据库、Redis 数据、管理员账号密码和密钥。
+changelog=更新 Sub2API 到 0.1.152，修复飞牛启停脚本缺少 /var/apps/sub2api/target 时无法启动/停止的问题，并保持管理后台“立即更新”写入持久化二进制。升级会保留应用数据、数据库、Redis 数据、管理员账号密码和密钥。

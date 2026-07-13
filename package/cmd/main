@@ -33,6 +33,7 @@ detect_volume() {
 find_compose_file() {
     script_dir="$(cd "$(dirname "$0")" && pwd)"
     app_vol="$(detect_volume)"
+    ensure_app_target_link "${app_vol}"
 
     for candidate in \
         "${TRIM_APPDEST:-}/docker/docker-compose.yaml" \
@@ -52,10 +53,36 @@ find_compose_file() {
     return 1
 }
 
+ensure_app_target_link() {
+    app_vol="${1:-$(detect_volume)}"
+    appcenter_dir="${app_vol}/@appcenter/${APP_NAME}"
+    var_app_dir="/var/apps/${APP_NAME}"
+    target_path="${var_app_dir}/target"
+
+    [ -d "${appcenter_dir}" ] || return 0
+    mkdir -p "${var_app_dir}" 2>/dev/null || true
+
+    if [ -L "${target_path}" ]; then
+        current_target="$(readlink "${target_path}" 2>/dev/null || true)"
+        [ "${current_target}" = "${appcenter_dir}" ] || ln -sfn "${appcenter_dir}" "${target_path}"
+        return 0
+    fi
+
+    if [ ! -e "${target_path}" ]; then
+        ln -s "${appcenter_dir}" "${target_path}" 2>/dev/null || true
+        return 0
+    fi
+
+    if [ -d "${target_path}" ] && [ ! -f "${target_path}/docker/docker-compose.yaml" ]; then
+        rmdir "${target_path}" 2>/dev/null && ln -s "${appcenter_dir}" "${target_path}" 2>/dev/null || true
+    fi
+}
+
 prepare_environment() {
     APP_VOL="$(detect_volume)"
     TRIM_APPDEST_VOL="${APP_VOL#/}"
     export TRIM_APPDEST_VOL
+    ensure_app_target_link "${APP_VOL}"
     DATA_ROOT="${APP_VOL}/@appshare/${APP_SHARE}"
     ENV_FILE="${DATA_ROOT}/sub2api.env"
 }
