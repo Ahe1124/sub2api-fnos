@@ -5,7 +5,7 @@ APP_NAME="sub2api"
 APP_SHARE="sub2api-docker"
 IMAGE_TAG="sub2api-fnos:0.1.152"
 APP_RUNTIME_VERSION="0.1.152"
-PREBUILT_IMAGE="__SUB2API_FNOS_IMAGE__"
+PREBUILT_IMAGE="ghcr.io/ahe1124/sub2api-fnos:0.1.152"
 
 log() {
     echo "[sub2api install] $*"
@@ -241,17 +241,13 @@ prepare_app_image() {
         return 0
     fi
 
-    if [ -n "${PREBUILT_IMAGE}" ] && [ "${PREBUILT_IMAGE}" != "__SUB2API_FNOS_IMAGE__" ]; then
-        log "pulling prebuilt image ${PREBUILT_IMAGE}"
-        if docker pull "${PREBUILT_IMAGE}" && docker tag "${PREBUILT_IMAGE}" "${IMAGE_TAG}"; then
-            log "prepared ${IMAGE_TAG} from ${PREBUILT_IMAGE}"
-            return 0
-        fi
-        fail "prebuilt image pull failed: ${PREBUILT_IMAGE}"
+    log "pulling prebuilt image ${PREBUILT_IMAGE}"
+    if docker pull "${PREBUILT_IMAGE}" && docker tag "${PREBUILT_IMAGE}" "${IMAGE_TAG}"; then
+        log "prepared ${IMAGE_TAG} from ${PREBUILT_IMAGE}"
+        return 0
     fi
 
-    DOCKER_DIR="$(find_docker_dir)" || fail "docker package directory not found"
-    docker build --pull -t "${IMAGE_TAG}" "${DOCKER_DIR}" || fail "failed to build ${IMAGE_TAG}"
+    fail "prebuilt image pull failed: ${PREBUILT_IMAGE}"
 }
 
 start_app() {

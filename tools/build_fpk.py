@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import io
 import os
+import re
 import shutil
 import tarfile
 from pathlib import Path
@@ -87,12 +88,12 @@ def configure_prebuilt_image(root: Path, image: str) -> None:
     image = image.strip()
     if not image:
         return
-    source = 'PREBUILT_IMAGE="__SUB2API_FNOS_IMAGE__"'
     target = f'PREBUILT_IMAGE="{image}"'
     for relative in ("cmd/install_callback", "cmd/uninstall_callback"):
         path = root / relative
         content = path.read_text(encoding="utf-8")
-        path.write_text(content.replace(source, target), encoding="utf-8", newline="\n")
+        content = re.sub(r'^PREBUILT_IMAGE="[^"]*"$', target, content, flags=re.MULTILINE)
+        path.write_text(content, encoding="utf-8", newline="\n")
 
 
 def main() -> int:
